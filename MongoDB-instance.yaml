@@ -93,7 +93,6 @@ Parameters:
     - t3.small
     - t3.medium
     - t3.large
-    - m6i.medium
     - m6i.large
     - m6i.xlarge
     - m6i.2xlarge
@@ -101,7 +100,7 @@ Parameters:
     - m6a.xlarge
     - m6a.2xlarge
     - m6a.4xlarge
-    - m6a.10xlarge
+    - m6a.8xlarge
     - c6i.large
     - c6i.xlarge
     - c6i.2xlarge
@@ -171,7 +170,7 @@ Mappings:
       Arch: HVM64
     m6i.xlarge:
       Arch: HVM64
-    m6a.10xlarge:
+    m6a.8xlarge:
       Arch: HVM64
     m6a.2xlarge:
       Arch: HVM64
@@ -394,6 +393,7 @@ Resources:
 
                 sed -i 's/127.0.0.1 /0.0.0.0/g' /etc/mongod.conf
                 service mongod restart
+                service awslogsd restart
               group: root
               mode: '000755'
               owner: root
@@ -453,6 +453,9 @@ Resources:
         FromPort: 22
         IpProtocol: tcp
         ToPort: 22
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
   IPAddress:
     Type: AWS::EC2::EIP
     Properties:
@@ -607,6 +610,10 @@ Outputs:
   PublicIP:
     Description: EC2 public IP
     Value: !Ref IPAddress
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicIP'
   MongoDBURL:
     Description: Website
     Value: !Sub "http://${MongoServer.PublicDnsName}"
+    Export:
+      Name: !Sub '${AWS::StackName}-MongoDBURL'
