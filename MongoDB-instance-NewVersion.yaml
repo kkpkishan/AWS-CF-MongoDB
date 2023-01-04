@@ -369,16 +369,29 @@ Resources:
                 yum -y install mongodb-org
                 chkconfig mongod on
                 service mongod start
+
+                cat <<EOT >>  /tmp/file.js
+                db.createUser(
+                  {
+                    user: "${DBUser}",
+                    pwd: "${DBPassword}",
+                    roles: [ { role: "root",db:"admin"  } ]
+                  }
+                )
+                EOT
+
               group: root
               mode: '000755'
               owner: root
             /tmp/setup-user.sh:
               content: !Sub |
                 #!/bin/bash -xe
-                mongosh <<EOF
-                use admin;
-                db.createUser({ user: "${DBUser}", pwd: "${DBPassword}", roles: ["root"] })
-                EOF
+                if [[ "${MongoVersion}" == "6.0" ]]; then
+                   mongosh admin /tmp/file.js
+                else
+                   mongo admin /tmp/file.js
+                fi
+                
 
                 cat <<EOT >>  /etc/mongod.conf
                 security:
