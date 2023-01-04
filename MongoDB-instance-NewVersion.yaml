@@ -1,0 +1,619 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Metadata:
+  License: Apache-2.0
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: 'Parent Stacks'
+        Parameters:
+        - ParentAlertStack
+      - Label:
+          default: "VPC Details"
+        Parameters:
+          - VPCID
+          - VPCSubnet
+      - Label:
+          default: "SSM-CW"
+        Parameters:
+          - SystemsManagerAccess
+          - LogsRetentionInDays
+      - Label:
+          default: "Instance Details"
+        Parameters:
+          - InstanceType
+          - EC2VolumeSizes
+      - Label:
+          default: "MongoDB Version"
+        Parameters:
+          - MongoVersion
+      - Label:
+          default: "Mongo Database"
+        Parameters:
+          - DBUser
+          - DBPassword
+      - Label:
+          default: "Instance connection"
+        Parameters:
+          - KeyName
+          - SSHLocation
+          - MongoAccessLocation
+Description: 'AWS CloudFormation LAMP Setup'
+Parameters:
+  ParentAlertStack:
+    Description: 'Optional but recommended stack name of parent alert stack based on https://github.com/kkpkishan/AWS-SNS/blob/master/alert.yaml template.'
+    Type: String
+    Default: ''
+  VPCID:
+    Description: Name of an existing VPC
+    Type: AWS::EC2::VPC::Id
+  VPCSubnet:
+    Description: Name of an existing Public Subnet
+    Type: AWS::EC2::Subnet::Id
+  SystemsManagerAccess:
+    Description: 'Enable AWS Systems Manager agent and authorization.'
+    Type: String
+    Default: true
+    AllowedValues:
+    - true
+    - false
+  LogsRetentionInDays:
+    Description: 'Specifies the number of days you want to retain log events.'
+    Type: Number
+    Default: 14
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+  MongoVersion:
+    AllowedValues:
+    - 5.0
+    - 4.4
+    Description: Mongo Version
+    Type: String   
+  DBPassword:
+    AllowedPattern: '[a-zA-Z0-9]+'
+    ConstraintDescription: must contain only alphanumeric characters.
+    Description: The  database admin account password
+    MaxLength: '41'
+    MinLength: '8'
+    NoEcho: 'true'
+    Type: String
+  DBUser:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+    Description: The  database admin account username
+    MaxLength: '16'
+    MinLength: '1'
+    Type: String
+  EC2VolumeSizes:
+    Description: 'Specifies the number of Lamp VolumeSize.'
+    Type: Number
+    Default: 8
+    AllowedValues: [8, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 1024]
+  InstanceType:
+    AllowedValues:
+    - t3.small
+    - t3.medium
+    - t3.large
+    - m6i.large
+    - m6i.xlarge
+    - m6i.2xlarge
+    - m6a.large
+    - m6a.xlarge
+    - m6a.2xlarge
+    - m6a.4xlarge
+    - m6a.8xlarge
+    - c6i.large
+    - c6i.xlarge
+    - c6i.2xlarge
+    - c6i.4xlarge
+    - c6i.8xlarge
+    - c6a.large
+    - c6a.xlarge
+    - c6a.2xlarge
+    - c6a.4xlarge
+    - c6a.8xlarge
+    - r6i.large
+    - r6i.xlarge
+    - r6i.2xlarge
+    - r6i.4xlarge
+    - r6i.8xlarge
+    ConstraintDescription: must be a valid EC2 instance type.
+    Default: t3.small
+    Description: MongoServer EC2 instance type
+    Type: String
+  KeyName:
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: AWS::EC2::KeyPair::KeyName
+  SSHLocation:
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 0.0.0.0/0
+    Description: The IP address range that can be used to SSH to the EC2 instances
+    MaxLength: '18'
+    MinLength: '9'
+    Type: String
+  MongoAccessLocation:
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 0.0.0.0/0
+    Description: The IP address range that can be used to MongoDB to the EC2 instances
+    MaxLength: '18'
+    MinLength: '9'
+    Type: String
+Mappings:
+  AWSInstanceType2Arch:
+    c6i.2xlarge:
+      Arch: HVM64
+    c6i.4xlarge:
+      Arch: HVM64
+    c6i.8xlarge:
+      Arch: HVM64
+    c6i.large:
+      Arch: HVM64
+    c6i.xlarge:
+      Arch: HVM64
+    c6a.2xlarge:
+      Arch: HVM64
+    c6a.4xlarge:
+      Arch: HVM64
+    c6a.8xlarge:
+      Arch: HVM64
+    c6a.large:
+      Arch: HVM64
+    c6a.xlarge:
+      Arch: HVM64
+    m6i.2xlarge:
+      Arch: HVM64
+    m6i.large:
+      Arch: HVM64
+    m6i.medium:
+      Arch: HVM64
+    m6i.xlarge:
+      Arch: HVM64
+    m6a.8xlarge:
+      Arch: HVM64
+    m6a.2xlarge:
+      Arch: HVM64
+    m6a.4xlarge:
+      Arch: HVM64
+    m6a.large:
+      Arch: HVM64
+    m6a.xlarge:
+      Arch: HVM64
+    r6i.2xlarge:
+      Arch: HVM64
+    r6i.4xlarge:
+      Arch: HVM64
+    r6i.8xlarge:
+      Arch: HVM64
+    r6i.large:
+      Arch: HVM64
+    r6i.xlarge:
+      Arch: HVM64
+    t3.large:
+      Arch: HVM64
+    t3.medium:
+      Arch: HVM64
+    t3.micro:
+      Arch: HVM64
+    t3.nano:
+      Arch: HVM64
+    t3.small:
+      Arch: HVM64
+
+  AWSRegionArch2AMI:
+    ap-northeast-1:
+      HVM64: ami-0b7546e839d7ace12
+    ap-northeast-2:
+      HVM64: ami-0fd0765afb77bcca7
+    ap-southeast-1:
+      HVM64: ami-0c802847a7dd848c0
+    ap-southeast-2:
+      HVM64: ami-07620139298af599e
+    eu-central-1:
+      HVM64: ami-0a1ee2fb28fe05df3
+    eu-west-1:
+      HVM64: ami-0d71ea30463e0ff8d
+    sa-east-1:
+      HVM64: ami-037c192f0fa52a358
+    us-east-1:
+      HVM64: ami-0cff7528ff583bf9a
+    us-west-1:
+      HVM64: ami-0d9858aa3c6322f73
+    us-west-2:
+      HVM64: ami-098e42ae54c764c35
+    eu-north-1:
+      HVM64: ami-0917076ab9780844d
+    ap-south-1:
+      HVM64: ami-08df646e18b182346
+    eu-west-3:
+      HVM64: ami-0f5094faf16f004eb
+    eu-west-2:
+      HVM64: ami-078a289ddf4b09ae0
+    ap-northeast-3:
+      HVM64: ami-0c66c8e259df7ec04
+    me-south-1:
+      HVM64: ami-0bf69afb300c322eb
+    ca-central-1:
+      HVM64: ami-00f881f027a6d74a0
+    us-east-2:
+      HVM64: ami-02d1e544b84bf7502
+Conditions:
+  HasSystemsManagerAccess: !Equals [!Ref SystemsManagerAccess, 'true']
+  HasAlertTopic: !Not [!Equals [!Ref ParentAlertStack, '']]
+
+Resources:
+  MongoServer:
+    Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          mongo_install:
+          - install_cfn
+          - Repofile
+          - install_mongo
+          - configure_mongo
+          - awslogs
+        configure_mongo:
+          commands:
+            01_configure_mongo:
+              command: /tmp/setup.sh
+            02_configure_mongo_user:
+              command: /tmp/setup-user.sh
+        install_cfn:
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content: !Sub |
+                [main]
+                stack= ${AWS::StackId}
+                region=${AWS::Region}
+              group: root
+              mode: '000400'
+              owner: root
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.MongoServer.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource MongoServer --configsets mongo_install --url https://stackbuilder.amazonaws.com
+              group: root
+              mode: '000400'
+              owner: root
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                - /etc/cfn/cfn-hup.conf
+                - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+        awslogs:
+          packages:
+            yum:
+              awslogs: []
+          files:
+            '/etc/awslogs/awscli.conf':
+              content: !Sub |
+                [default]
+                region = ${AWS::Region}
+                [plugins]
+                cwlogs = cwlogs
+              mode: '000644'
+              owner: root
+              group: root
+            '/etc/awslogs/awslogs.conf':
+              content: !Sub |
+                [general]
+                state_file = /var/lib/awslogs/agent-state
+                [audit]
+                file = /var/log/audit/audit.log
+                log_stream_name = {instance_id}/var/log/audit/audit.log
+                log_group_name = ${Logs}
+                [boot]
+                file = /var/log/boot.log
+                log_stream_name = {instance_id}/var/log/boot.log
+                log_group_name = ${Logs}
+                [cron]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/cron
+                log_stream_name = {instance_id}/var/log/cron
+                log_group_name = ${Logs}
+                [maillog]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/maillog
+                log_stream_name = {instance_id}/var/log/maillog
+                log_group_name = ${Logs}
+                [secure]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/secure
+                log_stream_name = {instance_id}/var/log/secure
+                log_group_name = ${Logs}
+              mode: '000644'
+              owner: root
+              group: root
+            '/etc/awslogs/config/mongo.conf':
+              content: !Sub |
+                [MongoDB-Logs]
+                datetime_format = %b %d %H:%M:%S %Y
+                file = /var/log/mongodb/mongod.log
+                log_stream_name = {instance_id}/var/log/mongodb/mongod.log
+                log_group_name = ${Logs}
+              mode: '000644'
+              owner: root
+              group: root
+
+        Repofile:
+          files:
+            '/etc/yum.repos.d/mongodb-org.repo':
+              content: !Sub |
+                [mongodb-org-${MongoVersion}]
+                name=MongoDB Repository
+                baseurl=https://repo.mongodb.org/yum/amazon/2/mongodb-org/${MongoVersion}/x86_64/
+                gpgcheck=1
+                enabled=1
+                gpgkey=https://www.mongodb.org/static/pgp/server-${MongoVersion}.asc
+              mode: "000644"
+              owner: root
+              group: root
+ 
+        install_mongo:
+          files:
+            /tmp/setup.sh:
+              content: !Sub |
+                #!/bin/bash -xe
+                yum -y update
+                yum -y install mongodb-org
+                chkconfig mongod on
+                service mongod start
+              group: root
+              mode: '000755'
+              owner: root
+            /tmp/setup-user.sh:
+              content: !Sub |
+                #!/bin/bash -xe
+                mongo <<EOF
+                use admin;
+                db.createUser({ user: "${DBUser}", pwd: "${DBPassword}", roles: ["root"] })
+                EOF
+
+                cat <<EOT >>  /etc/mongod.conf
+                security:
+                  authorization: enabled
+                EOT
+
+                cat <<EOT >>  /etc/security/limits.conf
+                * soft nofile 64000
+                * hard nofile 64000
+                * soft nproc 32000
+                * hard nproc 32000
+                EOT
+
+                sed -i 's/127.0.0.1 /0.0.0.0/g' /etc/mongod.conf
+                service mongod restart
+                service awslogsd restart
+              group: root
+              mode: '000755'
+              owner: root
+          packages:
+            yum:
+              awslogs: []
+          services:
+            sysvinit:
+              awslogsd:
+                enabled: true
+                ensureRunning: true
+
+    Properties:
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', !FindInMap [AWSInstanceType2Arch, !Ref InstanceType, Arch]]
+      InstanceType:
+        Ref: InstanceType
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet:
+            - Ref: "MongoServerSecurityGroup"
+          SubnetId:
+            Ref: "VPCSubnet"
+      KeyName:
+        Ref: KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: !Ref EC2VolumeSizes
+            VolumeType: gp3
+      UserData:
+        Fn::Base64: !Sub |
+           #!/bin/bash -xe
+           yum update -y
+           yum update -y aws-cfn-bootstrap
+           yum install amazon-cloudwatch-agent -y
+           curl -so /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json https://raw.githubusercontent.com/kkpkishan/amazon-cloudwatch-agent/main/amazon-cloudwatch-agent-basic.json
+           systemctl restart amazon-cloudwatch-agent
+           systemctl enable amazon-cloudwatch-agent
+           /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource MongoServer --configsets mongo_install --region ${AWS::Region}
+           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackId} --resource MongoServer --region ${AWS::Region}
+  MongoServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Enable Mongo access via port 27017 locked down to the load balancer + SSH access"
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+      - CidrIp: !Ref MongoAccessLocation
+        FromPort: 27017
+        IpProtocol: tcp
+        ToPort: 27017
+      - CidrIp: !Ref SSHLocation
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+  IPAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+  IPAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref 'MongoServer'
+      EIP: !Ref 'IPAddress'
+  Logs:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '${AWS::StackName}'
+      RetentionInDays: !Ref LogsRetentionInDays
+  IAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: 'ec2.amazonaws.com'
+          Action: 'sts:AssumeRole'
+      Policies:
+      - !If
+        - HasSystemsManagerAccess
+        - PolicyName: ssm
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - 'ssmmessages:*' # SSM Agent by https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-setting-up-messageAPIs.html
+              - 'ssm:UpdateInstanceInformation' # SSM agent by https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-setting-up-messageAPIs.html
+              - 'ec2messages:*' # SSM Session Manager by https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-setting-up-messageAPIs.html
+              Resource: '*'
+        - !Ref 'AWS::NoValue'
+      - PolicyName: 'ec2'
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'ec2:AssociateAddress'
+            - 'ec2:DescribeInstances'
+            - 'ec2:DescribeVolumeStatus'
+            - 'ec2:DescribeTags'
+            - 'ec2:DescribeVolumes'
+            - 'cloudwatch:GetMetricStatistics'
+            - 'cloudwatch:ListMetrics'
+            - 'cloudwatch:PutMetricData'
+            - 'cloudformation:DescribeStackResources'
+            - 'cloudformation:DescribeStackResource'
+            - 'cloudformation:DescribeStacks'
+            - 'cloudformation:ListStackResources'
+            - 'elasticloadbalancing:Describe*'
+            Resource:
+            - '*'
+      - PolicyName: logs
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            - 'logs:DescribeLogStreams'
+            Resource: !GetAtt 'Logs.Arn'
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+      - !Ref IAMRole
+  RecoveryAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'Recovering instance when underlying hardware fails.'
+      Namespace: 'AWS/EC2'
+      MetricName: StatusCheckFailed_System
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 5
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      AlarmActions:
+      - !Sub 'arn:aws:automate:${AWS::Region}:ec2:recover'
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref MongoServer
+  CPUTooHighAlarm:
+    Condition: HasAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'Scale-up if CPU > 80% for 5 minutes'
+      Namespace: 'AWS/EC2'
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 80
+      AlarmActions:
+      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      OKActions:
+      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref MongoServer
+  SystemStatusAlarm:
+    Condition: HasAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'SystemStatus over last 0 to 1.'
+      Namespace: 'AWS/EC2'
+      MetricName: StatusCheckFailed_System
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 2
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      AlarmActions:
+      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      OKActions:
+      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref MongoServer
+  InstanceStatusAlarm:
+    Condition: HasAlertTopic
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'InstanceStatus over last 0 to 1.'
+      Namespace: 'AWS/EC2'
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 3
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      AlarmActions:
+      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      OKActions:
+      - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref MongoServer
+Outputs:
+  PublicIP:
+    Description: EC2 public IP
+    Value: !Ref IPAddress
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicIP'
+  MongoDBURL:
+    Description: Website
+    Value: !Sub "http://${MongoServer.PublicDnsName}"
+    Export:
+      Name: !Sub '${AWS::StackName}-MongoDBURL'
