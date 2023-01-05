@@ -37,7 +37,7 @@ Metadata:
           - KeyName
           - SSHLocation
           - MongoAccessLocation
-Description: 'AWS CloudFormation LAMP Setup'
+Description: 'AWS CloudFormation MongoDB Setup'
 Parameters:
   ParentAlertStack:
     Description: 'Optional but recommended stack name of parent alert stack based on https://github.com/kkpkishan/AWS-SNS/blob/master/alert.yaml template.'
@@ -85,7 +85,7 @@ Parameters:
     MinLength: '1'
     Type: String
   EC2VolumeSizes:
-    Description: 'Specifies the number of Lamp VolumeSize.'
+    Description: 'Specifies the number of MongoDB VolumeSize.'
     Type: Number
     Default: 8
     AllowedValues: [8, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 1024]
