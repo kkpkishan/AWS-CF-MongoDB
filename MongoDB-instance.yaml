@@ -12,6 +12,7 @@ Metadata:
         Parameters:
           - VPCID
           - VPCSubnet
+          - PublicAccess
       - Label:
           default: "SSM-CW"
         Parameters:
@@ -49,6 +50,13 @@ Parameters:
   VPCSubnet:
     Description: Name of an existing Public Subnet
     Type: AWS::EC2::Subnet::Id
+  PublicAccess:
+    Description: 'EC2 Instance Public  access.'
+    Type: String
+    Default: true
+    AllowedValues:
+    - true
+    - false
   SystemsManagerAccess:
     Description: 'Enable AWS Systems Manager agent and authorization.'
     Type: String
@@ -241,6 +249,7 @@ Mappings:
 Conditions:
   HasSystemsManagerAccess: !Equals [!Ref SystemsManagerAccess, 'true']
   HasAlertTopic: !Not [!Equals [!Ref ParentAlertStack, '']]
+  HasPublicAccess: !Equals [!Ref PublicAccess, 'true']
 
 Resources:
   MongoServer:
@@ -412,7 +421,7 @@ Resources:
       InstanceType:
         Ref: InstanceType
       NetworkInterfaces:
-        - AssociatePublicIpAddress: "true"
+        - AssociatePublicIpAddress: !Ref PublicAccess
           DeviceIndex: "0"
           GroupSet:
             - Ref: "MongoServerSecurityGroup"
@@ -457,12 +466,14 @@ Resources:
         - Key: Name
           Value: !Sub '${AWS::StackName}'
   IPAddress:
+    Condition: HasPublicAccess
     Type: AWS::EC2::EIP
     Properties:
       Tags:
         - Key: Name
           Value: !Sub '${AWS::StackName}'
   IPAssoc:
+    Condition: HasPublicAccess
     Type: AWS::EC2::EIPAssociation
     Properties:
       InstanceId: !Ref 'MongoServer'
@@ -608,12 +619,24 @@ Resources:
         Value: !Ref MongoServer
 Outputs:
   PublicIP:
+    Condition: HasPublicAccess
     Description: EC2 public IP
     Value: !Ref IPAddress
     Export:
       Name: !Sub '${AWS::StackName}-PublicIP'
-  MongoDBURL:
+  MongoDBPublicURL:
+    Condition: HasPublicAccess
     Description: Website
     Value: !Sub "http://${MongoServer.PublicDnsName}"
     Export:
-      Name: !Sub '${AWS::StackName}-MongoDBURL'
+      Name: !Sub '${AWS::StackName}-MongoDBPublicURL'
+  PrivateIP:
+    Description: EC2 public IP
+    Value: !GetAtt MongoServer.PrivateIp
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivateIP'
+  MongoDBPrivateURL:
+    Description: Website
+    Value: !Sub "http://${MongoServer.PrivateDnsName}"
+    Export:
+      Name: !Sub '${AWS::StackName}-MongoDBPrivateURL'
