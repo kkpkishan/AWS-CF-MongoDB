@@ -626,7 +626,7 @@ Outputs:
       Name: !Sub '${AWS::StackName}-PublicIP'
   MongoDBPublicURL:
     Condition: HasPublicAccess
-    Description: Website
+    Description: MongoDB
     Value: !Sub "http://${MongoServer.PublicDnsName}"
     Export:
       Name: !Sub '${AWS::StackName}-MongoDBPublicURL'
@@ -636,7 +636,7 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-PrivateIP'
   MongoDBPrivateURL:
-    Description: Website
+    Description: DNS Private MongoDB
     Value: !Sub "http://${MongoServer.PrivateDnsName}"
     Export:
       Name: !Sub '${AWS::StackName}-MongoDBPrivateURL'

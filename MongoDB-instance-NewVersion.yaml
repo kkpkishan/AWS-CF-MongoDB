@@ -645,12 +645,12 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-MongoDBPublicURL'
   PrivateIP:
-    Description: EC2 public IP
+    Description: EC2 Private IP
     Value: !GetAtt MongoServer.PrivateIp
     Export:
       Name: !Sub '${AWS::StackName}-PrivateIP'
   MongoDBPrivateURL:
-    Description: Website
+    Description: DNS Private MongoDB
     Value: !Sub "http://${MongoServer.PrivateDnsName}"
     Export:
       Name: !Sub '${AWS::StackName}-MongoDBPrivateURL'
