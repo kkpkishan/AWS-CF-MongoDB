@@ -10,4 +10,4 @@ Offers two deployment options:
 - Deploying MongoDB(6.0,5.0,4.4) into a existing virtual private cloud (VPC) on AWS
 You can also use the AWS CloudFormation templates as a starting point for your own implementation.
 
-![Architecture for MongoDB on AWS](https://d0.awsstatic.com/partner-network/QuickStart/datasheets/mongodb-architecture-on-aws.png)
+![Architecture for MongoDB on AWS](https://github.com/kkpkishan/AWS-CF-MongoDB/blob/main/mongodb-architecture-on-aws.png)
