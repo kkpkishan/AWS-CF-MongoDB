@@ -38,8 +38,30 @@ Metadata:
           - KeyName
           - SSHLocation
           - MongoAccessLocation
+      - Label:
+          default: "Backup Plan"
+        Parameters:
+          - CreateBackupVault
+          - BackupPolicy
+          - DeleteAfterDays
 Description: 'AWS CloudFormation MongoDB Setup'
 Parameters:
+  CreateBackupVault:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+  BackupPolicy:
+    Type: String
+    Description: AWS Backup frequency choose between backup once, twice, thrice or four times a day
+    AllowedValues:
+      - BackupOnceDaily
+      - BackupTwiceDaily 
+      - BackupThriceDaily
+      - BackupFourTimesDaily
+  DeleteAfterDays:
+    Type: Number
+    Description: Number of days before the backup will be deleted
   ParentAlertStack:
     Description: 'Optional but recommended stack name of parent alert stack based on https://github.com/kkpkishan/AWS-SNS/blob/master/alert.yaml template.'
     Type: String
@@ -248,10 +270,62 @@ Mappings:
       HVM64: ami-02d1e544b84bf7502
 Conditions:
   HasSystemsManagerAccess: !Equals [!Ref SystemsManagerAccess, 'true']
+  HasBackupAccess: !Equals [!Ref CreateBackupVault, 'true']
   HasAlertTopic: !Not [!Equals [!Ref ParentAlertStack, '']]
   HasPublicAccess: !Equals [!Ref PublicAccess, 'true']
+  OnceDaily: !Equals [ !Ref BackupPolicy, "BackupOnceDaily" ]
+  TwiceDaily: !Equals [ !Ref BackupPolicy, "BackupTwiceDaily" ]
+  ThriceDaily: !Equals [ !Ref BackupPolicy, "BackupThriceDaily" ]
+  FourTimesDaily: !Equals [ !Ref BackupPolicy, "BackupFourTimesDaily" ]
 
 Resources:
+  StorageBackupVault:
+    Type: AWS::Backup::BackupVault
+    Condition: HasBackupAccess
+    Properties:
+      BackupVaultName: !Sub ${AWS::StackName}-BackupVault
+      BackupVaultTags: {
+        "Name": !Sub "${AWS::StackName}"
+      }
+  StorageBackupPlan:
+    Type: AWS::Backup::BackupPlan
+    Properties:
+      BackupPlan: 
+        BackupPlanName: !Sub ${AWS::StackName}-BackupPlanName
+        BackupPlanRule:
+          - 
+            RuleName: !Ref BackupPolicy
+            TargetBackupVault: !If [ HasBackupAccess, !Ref StorageBackupVault, !GetAtt StorageBackupVault.BackupVaultArn]
+            ScheduleExpression: 
+              !If
+                [ OnceDaily, "cron(0 1 * * ? *)",
+                !If
+                  [ TwiceDaily, "cron(0 0/12 * * ? *)",
+                  !If 
+                    [ ThriceDaily, "cron(0 0/8 * * ? *)", "cron(0 0/6 * * ? *)" ]
+                  ]
+                 ]
+            Lifecycle: {
+                DeleteAfterDays: !Ref DeleteAfterDays
+            }
+            RecoveryPointTags: {
+             "Name": !Sub "${AWS::StackName}"
+            }
+      BackupPlanTags: {
+        "Name": !Sub "${AWS::StackName}"
+      }
+  StorageBackupSelectionByTags:
+    Type: AWS::Backup::BackupSelection
+    Properties:
+      BackupSelection: 
+        SelectionName: !Ref MongoServer
+        IamRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/AWSBackupDefaultServiceRole"
+        ListOfTags:
+          - 
+            ConditionType: "STRINGEQUALS"
+            ConditionKey: "Name"
+            ConditionValue: !Sub "${AWS::StackName}"
+      BackupPlanId: !Ref StorageBackupPlan
   MongoServer:
     Type: AWS::EC2::Instance
     CreationPolicy:
@@ -640,3 +714,33 @@ Outputs:
     Value: !Sub "http://${MongoServer.PrivateDnsName}"
     Export:
       Name: !Sub '${AWS::StackName}-MongoDBPrivateURL'
+  BackupSelectionId:
+    Description: Backup Selection ID
+    Condition: HasBackupAccess
+    Value: !Ref StorageBackupSelectionByTags
+    Export:
+      Name: !Sub '${AWS::StackName}-BackupSelectionId'
+  BackupVaultArn:
+    Description: Backup Vault ARN
+    Condition: HasBackupAccess
+    Value: !GetAtt StorageBackupVault.BackupVaultArn
+    Export:
+      Name: !Sub '${AWS::StackName}-BackupVaultArn'
+  BackupPlanArn:
+    Description: BackupPlan Arn
+    Condition: HasBackupAccess
+    Value: !GetAtt StorageBackupPlan.BackupPlanArn
+    Export:
+      Name: !Sub '${AWS::StackName}-BackupPlanArn'
+  BackupPlanId:
+    Description: BackupPlan ID
+    Condition: HasBackupAccess
+    Value: !Ref StorageBackupPlan
+    Export:
+      Name: !Sub '${AWS::StackName}-BackupPlanId'
+  BackupPlanVersionId:
+    Description: BackupPlan Version ID
+    Condition: HasBackupAccess
+    Value: !GetAtt StorageBackupPlan.VersionId
+    Export:
+      Name: !Sub '${AWS::StackName}-BackupPlanVersionId'
