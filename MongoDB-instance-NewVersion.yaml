@@ -291,6 +291,7 @@ Resources:
       }
   StorageBackupPlan:
     Type: AWS::Backup::BackupPlan
+    Condition: HasBackupAccess
     Properties:
       BackupPlan: 
         BackupPlanName: !Sub ${AWS::StackName}-BackupPlanName
@@ -318,6 +319,7 @@ Resources:
       }
   StorageBackupSelectionByTags:
     Type: AWS::Backup::BackupSelection
+    Condition: HasBackupAccess
     Properties:
       BackupSelection: 
         SelectionName: !Ref MongoServer
